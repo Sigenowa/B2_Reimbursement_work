@@ -38,3 +38,4 @@ class User(AbstractUser):
         """判断是否为系统管理员"""
         return self.role == self.Role.ADMIN
 
+

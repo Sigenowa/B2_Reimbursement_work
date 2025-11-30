@@ -9,3 +9,4 @@ class UserAdmin(admin.ModelAdmin):
     search_fields = ['username', 'first_name', 'student_id', 'email']
     readonly_fields = ['date_joined', 'last_login']
 
+

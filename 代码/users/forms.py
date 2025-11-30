@@ -115,3 +115,4 @@ class PasswordChangeForm(forms.Form):
         self.user.set_password(self.cleaned_data['new_password1'])
         self.user.save()
 
+

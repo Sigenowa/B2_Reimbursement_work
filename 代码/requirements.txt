@@ -1,0 +1,9 @@
+Django>=4.2,<5.0
+gunicorn
+Pillow  # 图片处理
+openpyxl  # Excel 导出
+python-docx  # Word 导出
+python-dotenv  # 环境变量
+mysqlclient  # MySQL数据库支持
+
+

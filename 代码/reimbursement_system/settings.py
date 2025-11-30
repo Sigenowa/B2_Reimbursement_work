@@ -4,7 +4,9 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = "django-insecure-6jeho9o4pm3-@5vu%sffr*373h7l@h7uxksr$9ta8@)qkw2qo("
+# SECRET_KEY从环境变量读取，如果不存在则使用默认值（仅用于开发环境）
+# 生产环境必须设置环境变量：export SECRET_KEY='your-secret-key-here'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 DEBUG = True
 ALLOWED_HOSTS = ['*']
 
@@ -83,6 +85,10 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# 文件上传大小限制（10MB）
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = 'users.User'
