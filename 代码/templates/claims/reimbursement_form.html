@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if is_new %}新建报销单{% else %}编辑报销单{% endif %} - 报销神表{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2>{% if is_new %}填写报销单{% else %}编辑报销单{% endif %}</h2>
+        {% if not is_new and reimbursement.status == 'REJECTED' %}
+        <div class="alert alert-warning">
+            <strong>此报销单已被驳回</strong>。请根据审核意见修改后重新提交。
+            {% if reimbursement.reviewer_note %}
+            <br><strong>审核意见：</strong>{{ reimbursement.reviewer_note }}
+            {% endif %}
+        </div>
+        {% endif %}
+        <hr>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <!-- Main Form -->
+            <div class="card mb-4">
+                <div class="card-header">基本信息</div>
+                <div class="card-body">
+                    {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ field.label }}</label>
+                        {{ field }}
+                        <div class="text-danger">{{ field.errors }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Items Formset -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>物品明细</span>
+                    <button type="button" class="btn btn-sm btn-success" id="add-item">添加物品</button>
+                </div>
+                <div class="card-body">
+                    {{ formset.management_form }}
+                    <table class="table" id="items-table">
+                        <thead>
+                            <tr>
+                                <th>物品名称</th>
+                                <th>数量</th>
+                                <th>单价 (元)</th>
+                                <th>删除</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for form in formset %}
+                            <tr class="item-form">
+                                {{ form.id }}
+                                <td>{{ form.name }}</td>
+                                <td>{{ form.quantity }}</td>
+                                <td>{{ form.price }}</td>
+                                <td>
+                                    {% if formset.can_delete %}
+                                        {{ form.DELETE }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Invoice Upload -->
+            <div class="card mb-4">
+                <div class="card-header">上传发票</div>
+                <div class="card-body">
+                    {% if not is_new and reimbursement.invoices.all %}
+                    <div class="mb-3">
+                        <label class="form-label">已上传的发票</label>
+                        <ul class="list-group mb-3">
+                            {% for invoice in reimbursement.invoices.all %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <span>{{ invoice.file.name|slice:"20:" }}</span>
+                                <a href="{{ invoice.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary">查看</a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        {{ invoice_form.files.label_tag }}
+                        {{ invoice_form.files }}
+                        <div class="form-text">支持 PDF 格式，可同时选择多个文件。可以继续添加新发票。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <a href="{% url 'dashboard' %}" class="btn btn-secondary me-md-2">取消</a>
+                <button type="submit" name="save_draft" class="btn btn-outline-info">暂存</button>
+                <button type="submit" class="btn btn-primary btn-lg">{% if is_new %}提交报销申请{% else %}重新提交{% endif %}</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Hidden empty form for cloning -->
+<table style="display:none">
+    <tbody id="empty-form">
+        <tr class="item-form">
+            {{ formset.empty_form.id }}
+            <td>{{ formset.empty_form.name }}</td>
+            <td>{{ formset.empty_form.quantity }}</td>
+            <td>{{ formset.empty_form.price }}</td>
+            <td>{{ formset.empty_form.DELETE }}</td>
+        </tr>
+    </tbody>
+</table>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.getElementById('add-item').addEventListener('click', function() {
+        const formIdx = document.getElementById('id_items-TOTAL_FORMS').value;
+        const emptyRow = document.getElementById('empty-form').innerHTML;
+        const newRow = emptyRow.replace(/__prefix__/g, formIdx);
+        
+        document.querySelector('#items-table tbody').insertAdjacentHTML('beforeend', newRow);
+        document.getElementById('id_items-TOTAL_FORMS').value = parseInt(formIdx) + 1;
+    });
+</script>
+{% endblock %}
+
+
