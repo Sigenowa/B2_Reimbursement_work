@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}报销单详情 - 报销神表{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-file-text"></i> 报销单详情</h2>
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> 返回</a>
+        </div>
+        
+        {% if reimbursement.status == 'REJECTED' %}
+        <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle"></i>
+            <strong>此报销单已被驳回</strong>
+            {% if reimbursement.reviewer_note %}<br>审核意见：{{ reimbursement.reviewer_note }}{% endif %}
+        </div>
+        {% elif reimbursement.status == 'PACKED' %}
+        <div class="alert alert-success"><i class="bi bi-check-circle"></i> 此报销单已审核通过并打包</div>
+        {% endif %}
+        
+        <!-- 基本信息 -->
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-info-circle"></i> 基本信息</div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>活动主题：</strong>{{ reimbursement.theme }}</p>
+                        <p><strong>活动时间：</strong>{{ reimbursement.activity_date_display }}</p>
+                        <p><strong>活动地点：</strong>{{ reimbursement.activity_location|default:"未填写" }}</p>
+                        <p><strong>相关负责人：</strong>{{ reimbursement.activity_leader|default:"未填写" }}</p>
+                        <p><strong>申请人：</strong>{{ reimbursement.applicant.first_name|default:reimbursement.applicant.username }}</p>
+                        <p><strong>部门：</strong>{{ reimbursement.department }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>状态：</strong>
+                            <span class="badge {% if reimbursement.status == 'DRAFT' %}bg-secondary{% elif reimbursement.status == 'SUBMITTED' %}bg-warning{% elif reimbursement.status == 'PACKED' %}bg-success{% elif reimbursement.status == 'REJECTED' %}bg-danger{% endif %}">
+                                {{ reimbursement.get_status_display }}
+                            </span>
+                        </p>
+                        <p><strong>总金额：</strong><span class="text-success fs-4">¥{{ reimbursement.total_amount }}</span></p>
+                        <p><strong>创建时间：</strong>{{ reimbursement.created_at|date:"Y-m-d H:i" }}</p>
+                    </div>
+                </div>
+                {% if reimbursement.description %}
+                <hr>
+                <p><strong>活动内容：</strong></p>
+                <p>{{ reimbursement.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- 物品明细及发票 -->
+        <div class="card mb-4">
+            <div class="card-header"><i class="bi bi-list-ul"></i> 物品明细及凭证</div>
+            <div class="card-body">
+                {% for item in reimbursement.items.all %}
+                <div class="card mb-3">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <span><strong>{{ item.name }}</strong></span>
+                        <span class="badge bg-primary">¥{{ item.amount }}</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <small class="text-muted">数量：</small>{{ item.quantity }} {{ item.unit }}
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted">单价：</small>¥{{ item.price }}
+                            </div>
+                            <div class="col-md-4">
+                                <small class="text-muted">金额：</small>¥{{ item.amount }}
+                            </div>
+                        </div>
+                        
+                        {% if item.invoices.exists %}
+                        <hr>
+                        <p class="small text-muted mb-2"><i class="bi bi-file-earmark"></i> 相关凭证：</p>
+                        <div class="row">
+                            {% for invoice in item.invoices.all %}
+                            <div class="col-md-3 mb-2">
+                                <div class="card h-100 text-center p-2">
+                                    {% if '.pdf' in invoice.file_name|lower %}
+                                    <i class="bi bi-file-earmark-pdf display-6 text-danger"></i>
+                                    {% else %}
+                                    <i class="bi bi-file-earmark-image display-6 text-primary"></i>
+                                    {% endif %}
+                                    <small class="text-truncate" title="{{ invoice.file_name }}">{{ invoice.file_name|truncatechars:20 }}</small>
+                                    <a href="{{ invoice.file.url }}" target="_blank" class="btn btn-sm btn-outline-primary mt-1">
+                                        <i class="bi bi-eye"></i> 查看
+                                    </a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <p class="text-muted small mt-2">暂无凭证</p>
+                        {% endif %}
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center">暂无物品明细</p>
+                {% endfor %}
+                
+                <!-- 合计 -->
+                <div class="text-end border-top pt-3">
+                    <h5>合计：<span class="text-success">¥{{ reimbursement.total_amount }}</span></h5>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 审核操作（仅负责人可见） -->
+        {% if user.is_lead and reimbursement.status == 'SUBMITTED' %}
+        <div class="card mb-4 border-primary">
+            <div class="card-header bg-primary text-white"><i class="bi bi-check2-square"></i> 审核操作</div>
+            <div class="card-body">
+                <form method="post" action="{% url 'review_reimbursement' reimbursement.pk %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">审核备注（选填）</label>
+                        <textarea name="note" class="form-control" rows="2" placeholder="如驳回请填写原因..."></textarea>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" name="action" value="approve" class="btn btn-success">
+                            <i class="bi bi-check-lg"></i> 通过并打包
+                        </button>
+                        <button type="submit" name="action" value="reject" class="btn btn-danger">
+                            <i class="bi bi-x-lg"></i> 驳回
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 操作按钮 -->
+        <div class="d-flex gap-2">
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary"><i class="bi bi-arrow-left"></i> 返回</a>
+            {% if reimbursement.applicant == user and reimbursement.status == 'DRAFT' or reimbursement.status == 'REJECTED' %}
+            <a href="{% url 'edit_reimbursement' reimbursement.pk %}" class="btn btn-warning"><i class="bi bi-pencil"></i> 编辑</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

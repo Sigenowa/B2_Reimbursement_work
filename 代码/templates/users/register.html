@@ -6,7 +6,9 @@
 <div class="row justify-content-center">
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header bg-primary text-white">注册新账号</div>
+            <div class="card-header bg-primary text-white text-center">
+                <i class="bi bi-person-plus"></i> 注册新账号
+            </div>
             <div class="card-body">
                 <form method="post">
                     {% csrf_token %}
@@ -51,9 +53,6 @@
                     <div class="mb-3">
                         <label for="{{ form.department.id_for_label }}" class="form-label">{{ form.department.label }}</label>
                         {{ form.department }}
-                        {% if form.department.help_text %}
-                        <div class="form-text">{{ form.department.help_text }}</div>
-                        {% endif %}
                         {% for error in form.department.errors %}
                         <div class="text-danger small">{{ error }}</div>
                         {% endfor %}
@@ -79,21 +78,25 @@
                     <div class="mb-3">
                         <label for="{{ form.password2.id_for_label }}" class="form-label">{{ form.password2.label }}</label>
                         {{ form.password2 }}
-                        {% if form.password2.help_text %}
-                        <div class="form-text">{{ form.password2.help_text }}</div>
-                        {% endif %}
                         {% for error in form.password2.errors %}
                         <div class="text-danger small">{{ error }}</div>
                         {% endfor %}
                     </div>
                     
-                    <button type="submit" class="btn btn-primary w-100">注册</button>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-person-plus"></i> 注册
+                    </button>
                 </form>
                 <div class="mt-3 text-center">
-                    <a href="{% url 'login' %}">已有账号？去登录</a>
+                    <a href="{% url 'login' %}">已有账号？立即登录</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
+
+
+
+
