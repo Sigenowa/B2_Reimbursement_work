@@ -1,3 +1,8 @@
 from django.test import TestCase
 
-# Create your tests here.
+# 用户应用测试用例
+
+
+
+
+
