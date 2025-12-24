@@ -1,59 +1,182 @@
+"""
+报销单表单定义
+包含活动主题选择、报销单基本信息、物品明细、发票上传等表单
+"""
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Reimbursement, ReimbursementItem, Invoice
+from .models import Reimbursement, ReimbursementItem, Invoice, ActivityTheme
+
 
 class ReimbursementForm(forms.ModelForm):
     """
     报销单基本信息表单
-    用于填写活动主题和活动主要内容
+    活动主题支持下拉选择已有主题或输入新主题
     """
+    
+    # 活动主题下拉选择（可选）
+    existing_theme = forms.ModelChoiceField(
+        queryset=ActivityTheme.objects.none(),
+        required=False,
+        label='选择已有主题',
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'id': 'existing-theme-select'
+        })
+    )
+    
     class Meta:
         model = Reimbursement
-        fields = ['theme', 'description']
+        fields = ['theme', 'description', 'activity_year', 'activity_month', 'activity_day', 
+                  'activity_location', 'activity_leader']
         widgets = {
-            'theme': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'theme': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '输入新主题或从上方选择已有主题',
+                'id': 'theme-input'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 3,
+                'placeholder': '请描述活动主要内容（选填）'
+            }),
+            'activity_year': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '年',
+                'min': 2020,
+                'max': 2030,
+                'id': 'activity-year'
+            }),
+            'activity_month': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '月',
+                'min': 1,
+                'max': 12,
+                'id': 'activity-month'
+            }),
+            'activity_day': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': '日',
+                'min': 1,
+                'max': 31,
+                'id': 'activity-day'
+            }),
+            'activity_location': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '请输入活动地点（必填）'
+            }),
+            'activity_leader': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '请输入相关负责人姓名（必填）'
+            }),
         }
+        error_messages = {
+            'theme': {'required': '⚠️ 活动主题不能为空！'},
+            'activity_year': {'required': '⚠️ 活动年份不能为空！'},
+            'activity_month': {'required': '⚠️ 活动月份不能为空！'},
+            'activity_day': {'required': '⚠️ 活动日期不能为空！'},
+            'activity_location': {'required': '⚠️ 活动地点不能为空！'},
+            'activity_leader': {'required': '⚠️ 相关负责人不能为空！'},
+        }
+    
+    def __init__(self, *args, department=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['theme'].required = True
+        self.fields['description'].required = False
+        self.fields['activity_year'].required = True
+        self.fields['activity_month'].required = True
+        self.fields['activity_day'].required = True
+        self.fields['activity_location'].required = True
+        self.fields['activity_leader'].required = True
+        
+        # 根据部门筛选可选的活动主题
+        if department:
+            self.fields['existing_theme'].queryset = ActivityTheme.objects.filter(
+                department=department
+            ).order_by('-created_at')
+    
+    def clean_activity_month(self):
+        month = self.cleaned_data.get('activity_month')
+        if month and (month < 1 or month > 12):
+            raise forms.ValidationError('月份必须在1-12之间')
+        return month
+    
+    def clean_activity_day(self):
+        day = self.cleaned_data.get('activity_day')
+        if day and (day < 1 or day > 31):
+            raise forms.ValidationError('日期必须在1-31之间')
+        return day
+
 
 class ReimbursementItemForm(forms.ModelForm):
     """
-    报销明细表单
-    用于填写单个物品的信息：名称、数量、单价
-    金额字段会自动计算，不需要用户填写
+    报销明细表单（单行）
+    包含物品名称、数量、单位、单价
     """
     class Meta:
         model = ReimbursementItem
-        fields = ['name', 'quantity', 'price']
+        fields = ['name', 'quantity', 'unit', 'price']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control item-name'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control item-quantity', 'min': 1}),
-            'price': forms.NumberInput(attrs={'class': 'form-control item-price', 'step': '0.01'}),
+            'name': forms.TextInput(attrs={
+                'class': 'form-control item-name',
+                'placeholder': '物品名称'
+            }),
+            'quantity': forms.NumberInput(attrs={
+                'class': 'form-control item-quantity',
+                'min': 1,
+                'placeholder': '数量',
+                'style': 'width: 80px'
+            }),
+            'unit': forms.TextInput(attrs={
+                'class': 'form-control item-unit',
+                'placeholder': '单位',
+                'style': 'width: 60px',
+                'value': '个'
+            }),
+            'price': forms.NumberInput(attrs={
+                'class': 'form-control item-price',
+                'step': '0.01',
+                'min': '0.01',
+                'placeholder': '单价'
+            }),
+        }
+        error_messages = {
+            'name': {'required': '物品名称不能为空'},
+            'quantity': {'required': '数量不能为空'},
+            'price': {'required': '单价不能为空'},
         }
 
-# 使用inlineformset_factory创建多行表单
-# 允许在一个报销单中添加多个物品明细，支持动态添加和删除
+
+# 物品明细表单集
 ReimbursementItemFormSet = inlineformset_factory(
-    Reimbursement, ReimbursementItem, form=ReimbursementItemForm,
-    extra=1,  # 默认显示1个空行
-    can_delete=True  # 允许删除已存在的明细
+    Reimbursement, 
+    ReimbursementItem, 
+    form=ReimbursementItemForm,
+    extra=1,
+    can_delete=True
 )
 
-class MultipleFileInput(forms.ClearableFileInput):
-    """
-    自定义文件输入组件
-    支持同时选择多个文件上传
-    Django默认的FileInput不支持multiple属性，需要自定义
-    """
-    allow_multiple_selected = True
 
-class InvoiceUploadForm(forms.Form):
+class ItemInvoiceForm(forms.ModelForm):
     """
-    发票上传表单
-    支持一次选择多个PDF文件上传
-    文件大小和格式限制在视图层或settings中配置
+    物品发票上传表单
+    每个物品可以上传多张凭证
     """
-    files = forms.FileField(
-        widget=MultipleFileInput(attrs={'multiple': True, 'class': 'form-control'}),
-        required=False,  # 发票不是必填项
-        label='上传发票 (支持多选)'
-    )
+    class Meta:
+        model = Invoice
+        fields = ['file']
+        widgets = {
+            'file': forms.ClearableFileInput(attrs={
+                'class': 'form-control form-control-sm',
+                'accept': '.pdf,.jpg,.jpeg,.png'
+            })
+        }
+
+
+# 发票表单集（与物品明细关联）
+ItemInvoiceFormSet = inlineformset_factory(
+    ReimbursementItem,
+    Invoice,
+    form=ItemInvoiceForm,
+    extra=1,
+    can_delete=True
+)
