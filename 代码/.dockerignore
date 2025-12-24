@@ -1,0 +1,59 @@
+# .dockerignore - 构建镜像时忽略的文件
+# 这些文件不会被复制到 Docker 镜像中
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 虚拟环境
+venv/
+env/
+.venv/
+
+# 本地数据库
+db.sqlite3
+*.sqlite3
+
+# 日志文件
+*.log
+logs/
+
+# 媒体文件（通过 volume 挂载）
+media/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 文档（不需要在容器里）
+*.md
+docs/
+
+# 测试
+.pytest_cache/
+htmlcov/
+.coverage
+
+# 环境变量文件（敏感信息）
+.env
+.env.local
+.env.production
+
+# 部署脚本（不需要在容器里）
+deploy/
+
+# 静态文件收集目录（会在构建时重新生成）
+staticfiles/
+

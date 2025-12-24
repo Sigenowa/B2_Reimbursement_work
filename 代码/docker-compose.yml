@@ -1,0 +1,77 @@
+# docker-compose.yml - 报销系统 Docker 编排配置
+# 使用方法: docker-compose up -d
+
+version: '3.8'
+
+services:
+  # ==========================================
+  # MySQL 数据库服务
+  # ==========================================
+  db:
+    image: mysql:8.0
+    container_name: reimbursement-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword123}
+      MYSQL_DATABASE: ${DB_NAME:-reimbursement_db}
+      MYSQL_USER: ${DB_USER:-reimbursement_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-yourpassword123}
+    volumes:
+      # 数据持久化，容器删除后数据不丢失
+      - mysql_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+      --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==========================================
+  # Django Web 应用服务
+  # ==========================================
+  web:
+    build: .
+    container_name: reimbursement-web
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      # 数据库配置（不设置 USE_SQLITE，默认使用 MySQL）
+      - DB_NAME=${DB_NAME:-reimbursement_db}
+      - DB_USER=${DB_USER:-reimbursement_user}
+      - DB_PASSWORD=${DB_PASSWORD:-yourpassword123}
+      - DB_HOST=db
+      - DB_PORT=3306
+      # Django 配置
+      - DEBUG=${DEBUG:-false}
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production-123}
+    volumes:
+      # 媒体文件持久化（用户上传的文件）
+      - ./media:/app/media
+      # 日志持久化
+      - ./logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo '等待数据库启动...' &&
+        sleep 5 &&
+        echo '执行数据库迁移...' &&
+        python manage.py migrate &&
+        echo '启动 Web 服务...' &&
+        gunicorn --bind 0.0.0.0:8000 --workers 3 reimbursement_system.wsgi:application
+      "
+
+# ==========================================
+# 数据卷定义
+# ==========================================
+volumes:
+  mysql_data:
+    name: reimbursement-mysql-data
+
