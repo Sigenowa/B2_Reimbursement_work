@@ -16,6 +16,42 @@ from django.utils import timezone
 from django.db.models import Sum
 from .models import Reimbursement, ReimbursementItem, Invoice, ActivityTheme
 from .forms import ReimbursementForm, ReimbursementItemFormSet
+from django.core.exceptions import ValidationError
+
+
+def validate_file_type(file):
+    """
+    验证文件类型，只允许PDF和图片格式
+    允许的格式：.pdf, .jpg, .jpeg, .png, .gif, .bmp, .webp
+    """
+    allowed_extensions = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp']
+    file_name = file.name.lower()
+    file_ext = os.path.splitext(file_name)[1]
+    
+    if file_ext not in allowed_extensions:
+        raise ValidationError(
+            f'不支持的文件格式：{file_ext}。只允许上传 PDF 或图片文件（JPG、PNG、GIF、BMP、WEBP）'
+        )
+    
+    # 额外检查MIME类型（更安全）
+    allowed_mime_types = [
+        'application/pdf',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/gif',
+        'image/bmp',
+        'image/webp'
+    ]
+    
+    # 如果文件有content_type属性，也进行验证
+    if hasattr(file, 'content_type') and file.content_type:
+        if file.content_type not in allowed_mime_types:
+            raise ValidationError(
+                f'不支持的文件类型：{file.content_type}。只允许上传 PDF 或图片文件'
+            )
+    
+    return True
 
 
 @login_required
@@ -99,11 +135,21 @@ def create_reimbursement(request):
                 if item_form.instance.pk:
                     files = request.FILES.getlist(f'item_{i}_files')
                     for f in files:
-                        Invoice.objects.create(
-                            item=item_form.instance,
-                            file=f,
-                            file_name=f.name
-                        )
+                        try:
+                            # 验证文件类型
+                            validate_file_type(f)
+                            Invoice.objects.create(
+                                item=item_form.instance,
+                                file=f,
+                                file_name=f.name
+                            )
+                        except ValidationError as e:
+                            messages.error(request, f'文件 {f.name}：{str(e)}')
+                            return render(request, 'claims/reimbursement_form.html', {
+                                'form': form,
+                                'formset': formset,
+                                'is_new': True
+                            })
             
             reimbursement.calculate_total()
             return redirect('dashboard')
@@ -166,11 +212,22 @@ def edit_reimbursement(request, pk):
                 if item_form.instance.pk:
                     files = request.FILES.getlist(f'item_{i}_files')
                     for f in files:
-                        Invoice.objects.create(
-                            item=item_form.instance,
-                            file=f,
-                            file_name=f.name
-                        )
+                        try:
+                            # 验证文件类型
+                            validate_file_type(f)
+                            Invoice.objects.create(
+                                item=item_form.instance,
+                                file=f,
+                                file_name=f.name
+                            )
+                        except ValidationError as e:
+                            messages.error(request, f'文件 {f.name}：{str(e)}')
+                            return render(request, 'claims/reimbursement_form.html', {
+                                'form': form,
+                                'formset': formset,
+                                'reimbursement': reimbursement,
+                                'is_new': False
+                            })
             
             reimbursement.calculate_total()
             return redirect('dashboard')

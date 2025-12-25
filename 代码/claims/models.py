@@ -161,7 +161,11 @@ class Invoice(models.Model):
         verbose_name='物品明细'
     )
     
-    file = models.FileField(upload_to='invoices/%Y/%m/%d/', verbose_name='凭证文件')
+    file = models.FileField(
+        upload_to='invoices/%Y/%m/%d/', 
+        verbose_name='凭证文件',
+        help_text='只支持PDF和图片文件（JPG、PNG、GIF、BMP、WEBP）'
+    )
     file_name = models.CharField(max_length=200, blank=True, verbose_name='原始文件名')
     uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name='上传时间')
 
