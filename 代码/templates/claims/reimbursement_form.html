@@ -58,22 +58,16 @@
                         <label class="form-label">活动时间 <span class="text-danger">*</span></label>
                         <div class="row g-2">
                             <div class="col-4">
-                                <div class="input-group">
-                                    {{ form.activity_year }}
-                                    <span class="input-group-text">年</span>
-                                </div>
+                                <label class="form-label small">年份</label>
+                                {{ form.activity_year }}
                             </div>
                             <div class="col-4">
-                                <div class="input-group">
-                                    {{ form.activity_month }}
-                                    <span class="input-group-text">月</span>
-                                </div>
+                                <label class="form-label small">月份</label>
+                                {{ form.activity_month }}
                             </div>
                             <div class="col-4">
-                                <div class="input-group">
-                                    {{ form.activity_day }}
-                                    <span class="input-group-text">日</span>
-                                </div>
+                                <label class="form-label small">日期</label>
+                                {{ form.activity_day }}
                             </div>
                         </div>
                     </div>
@@ -231,19 +225,47 @@ let themesData = [];
 
 // 加载活动主题列表
 fetch('{% url "get_activity_themes" %}')
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('网络请求失败');
+        }
+        return response.json();
+    })
     .then(data => {
-        themesData = data.themes;
+        themesData = data.themes || [];
         const select = document.getElementById('existing-theme-select');
-        data.themes.forEach(theme => {
+        
+        // 清空现有选项（除了第一个提示选项）
+        select.innerHTML = '<option value="">-- 选择已有主题 --</option>';
+        
+        if (themesData.length === 0) {
+            // 如果没有主题，显示提示
             const option = document.createElement('option');
-            option.value = theme.id;
-            option.textContent = theme.name;
-            option.dataset.year = theme.year;
-            option.dataset.month = theme.month;
-            option.dataset.day = theme.day;
+            option.value = '';
+            option.textContent = '暂无已有主题';
+            option.disabled = true;
             select.appendChild(option);
-        });
+        } else {
+            // 添加主题选项
+            themesData.forEach(theme => {
+                const option = document.createElement('option');
+                option.value = theme.id;
+                option.textContent = theme.name;
+                option.dataset.year = theme.year;
+                option.dataset.month = theme.month;
+                option.dataset.day = theme.day;
+                select.appendChild(option);
+            });
+        }
+    })
+    .catch(error => {
+        console.error('加载活动主题失败:', error);
+        const select = document.getElementById('existing-theme-select');
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = '加载失败，请刷新页面';
+        option.disabled = true;
+        select.appendChild(option);
     });
 
 // 选择已有主题时自动填充
@@ -253,8 +275,145 @@ document.getElementById('existing-theme-select').addEventListener('change', func
         document.getElementById('id_theme').value = selectedOption.textContent;
         document.getElementById('id_activity_year').value = selectedOption.dataset.year;
         document.getElementById('id_activity_month').value = selectedOption.dataset.month;
+        // 更新日期选项
+        updateDayOptions(selectedOption.dataset.year, selectedOption.dataset.month);
         document.getElementById('id_activity_day').value = selectedOption.dataset.day;
     }
+});
+
+// 判断是否为闰年
+function isLeapYear(year) {
+    return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+}
+
+// 获取指定年月的天数
+function getDaysInMonth(year, month) {
+    const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (month === 2 && isLeapYear(year)) {
+        return 29;
+    }
+    return daysInMonth[month - 1];
+}
+
+// 更新日期下拉选项
+function updateDayOptions(year, month) {
+    const daySelect = document.getElementById('id_activity_day');
+    const currentDay = daySelect.value;
+    
+    if (!year || !month) {
+        daySelect.innerHTML = '<option value="">-- 请先选择年月 --</option>';
+        return;
+    }
+    
+    const yearNum = parseInt(year);
+    const monthNum = parseInt(month);
+    const daysInMonth = getDaysInMonth(yearNum, monthNum);
+    
+    // 保存当前选中的日期
+    let selectedDay = currentDay;
+    if (selectedDay && parseInt(selectedDay) > daysInMonth) {
+        selectedDay = daysInMonth; // 如果当前日期超过该月最大天数，设为最大天数
+    }
+    
+    // 清空并重新填充日期选项
+    daySelect.innerHTML = '<option value="">-- 选择日期 --</option>';
+    for (let day = 1; day <= daysInMonth; day++) {
+        const option = document.createElement('option');
+        option.value = day;
+        option.textContent = day + '日';
+        if (selectedDay && day === parseInt(selectedDay)) {
+            option.selected = true;
+        }
+        daySelect.appendChild(option);
+    }
+}
+
+// 初始化年份选项（根据当前月份动态设置）
+function initializeYearOptions() {
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // JavaScript月份从0开始
+    const currentYear = now.getFullYear();
+    
+    const yearSelect = document.getElementById('id_activity_year');
+    const currentYearValue = yearSelect.value;
+    
+    // 清空年份选项
+    yearSelect.innerHTML = '<option value="">-- 选择年份 --</option>';
+    
+    // 如果当前是1-6月，可以选择去年和今年；如果是7-12月，只能选择今年
+    if (currentMonth <= 6) {
+        const option1 = document.createElement('option');
+        option1.value = currentYear - 1;
+        option1.textContent = (currentYear - 1) + '年';
+        if (currentYearValue == currentYear - 1) option1.selected = true;
+        yearSelect.appendChild(option1);
+        
+        const option2 = document.createElement('option');
+        option2.value = currentYear;
+        option2.textContent = currentYear + '年';
+        if (currentYearValue == currentYear || !currentYearValue) option2.selected = true;
+        yearSelect.appendChild(option2);
+    } else {
+        const option = document.createElement('option');
+        option.value = currentYear;
+        option.textContent = currentYear + '年';
+        if (!currentYearValue) option.selected = true;
+        yearSelect.appendChild(option);
+    }
+}
+
+// 初始化月份选项（1-12月）
+function initializeMonthOptions() {
+    const monthSelect = document.getElementById('id_activity_month');
+    const currentMonthValue = monthSelect.value;
+    
+    // 如果已经有选项（从Django表单生成），就不需要重新生成
+    if (monthSelect.options.length > 1) {
+        return;
+    }
+    
+    monthSelect.innerHTML = '<option value="">-- 选择月份 --</option>';
+    for (let month = 1; month <= 12; month++) {
+        const option = document.createElement('option');
+        option.value = month;
+        option.textContent = month + '月';
+        if (currentMonthValue == month) option.selected = true;
+        monthSelect.appendChild(option);
+    }
+}
+
+// 年份和月份变化时更新日期选项
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化年份和月份选项
+    initializeYearOptions();
+    initializeMonthOptions();
+    
+    // 如果已有选中的年月，初始化日期选项
+    const yearSelect = document.getElementById('id_activity_year');
+    const monthSelect = document.getElementById('id_activity_month');
+    const daySelect = document.getElementById('id_activity_day');
+    
+    if (yearSelect.value && monthSelect.value) {
+        updateDayOptions(yearSelect.value, monthSelect.value);
+    }
+    
+    // 监听年份变化
+    yearSelect.addEventListener('change', function() {
+        if (this.value && monthSelect.value) {
+            updateDayOptions(this.value, monthSelect.value);
+        } else {
+            daySelect.innerHTML = '<option value="">-- 请先选择年月 --</option>';
+        }
+    });
+    
+    // 监听月份变化
+    monthSelect.addEventListener('change', function() {
+        if (this.value && yearSelect.value) {
+            updateDayOptions(yearSelect.value, this.value);
+        } else {
+            daySelect.innerHTML = '<option value="">-- 请先选择年月 --</option>';
+        }
+    });
 });
 
 // 添加物品行

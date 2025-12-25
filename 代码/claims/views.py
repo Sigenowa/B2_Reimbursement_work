@@ -42,7 +42,9 @@ def get_activity_themes(request):
     API：获取当前部门的活动主题列表
     用于前端下拉选择框的数据源
     """
-    department = request.user.department
+    department = request.user.department or "未分配"
+    
+    # 查询该部门的所有活动主题
     themes = ActivityTheme.objects.filter(department=department).order_by('-created_at')
     
     data = [{

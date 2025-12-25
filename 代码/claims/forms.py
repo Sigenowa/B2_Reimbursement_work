@@ -39,26 +39,17 @@ class ReimbursementForm(forms.ModelForm):
                 'rows': 3,
                 'placeholder': '请描述活动主要内容（选填）'
             }),
-            'activity_year': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '年',
-                'min': 2020,
-                'max': 2030,
-                'id': 'activity-year'
+            'activity_year': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_activity_year'
             }),
-            'activity_month': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '月',
-                'min': 1,
-                'max': 12,
-                'id': 'activity-month'
+            'activity_month': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_activity_month'
             }),
-            'activity_day': forms.NumberInput(attrs={
-                'class': 'form-control',
-                'placeholder': '日',
-                'min': 1,
-                'max': 31,
-                'id': 'activity-day'
+            'activity_day': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_activity_day'
             }),
             'activity_location': forms.TextInput(attrs={
                 'class': 'form-control',
@@ -93,6 +84,28 @@ class ReimbursementForm(forms.ModelForm):
             self.fields['existing_theme'].queryset = ActivityTheme.objects.filter(
                 department=department
             ).order_by('-created_at')
+        
+        # 设置年份选项（根据当前月份动态设置，在模板中通过JavaScript实现）
+        from datetime import datetime
+        current_date = datetime.now()
+        current_month = current_date.month
+        current_year = current_date.year
+        
+        # 如果当前是1-6月，可以选择去年和今年；如果是7-12月，只能选择今年
+        if current_month <= 6:
+            year_choices = [(current_year - 1, str(current_year - 1)), (current_year, str(current_year))]
+        else:
+            year_choices = [(current_year, str(current_year))]
+        
+        self.fields['activity_year'].widget.choices = [('', '-- 选择年份 --')] + year_choices
+        
+        # 设置月份选项（1-12月）
+        month_choices = [(i, f'{i}月') for i in range(1, 13)]
+        self.fields['activity_month'].widget.choices = [('', '-- 选择月份 --')] + month_choices
+        
+        # 日期选项在JavaScript中动态生成
+        day_choices = [(i, f'{i}日') for i in range(1, 32)]
+        self.fields['activity_day'].widget.choices = [('', '-- 选择日期 --')] + day_choices
     
     def clean_activity_month(self):
         month = self.cleaned_data.get('activity_month')
@@ -102,8 +115,18 @@ class ReimbursementForm(forms.ModelForm):
     
     def clean_activity_day(self):
         day = self.cleaned_data.get('activity_day')
-        if day and (day < 1 or day > 31):
+        year = self.cleaned_data.get('activity_year')
+        month = self.cleaned_data.get('activity_month')
+        
+        if day and year and month:
+            # 验证日期是否有效（考虑月份天数和闰年）
+            from calendar import monthrange
+            max_day = monthrange(year, month)[1]
+            if day < 1 or day > max_day:
+                raise forms.ValidationError(f'{year}年{month}月只有{max_day}天')
+        elif day and (day < 1 or day > 31):
             raise forms.ValidationError('日期必须在1-31之间')
+        
         return day
 
 
