@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block title %}主页 - 报销神表{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h2 class="mb-4">
+            <i class="bi bi-speedometer2"></i> 
+            {% if user.is_lead %}报销审核中心{% else %}我的报销单{% endif %}
+        </h2>
+        
+        {% if user.is_lead %}
+        <!-- 负责人视图：查看本部门的报销单 -->
+        <div class="alert alert-info mb-3">
+            <i class="bi bi-info-circle"></i> 当前筛选部门：<strong>{{ dept_filter }}</strong>
+            <br><small>只显示部门为「{{ dept_filter }}」的报销单。请确保申请人的部门与此一致。</small>
+        </div>
+        
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-check"></i> 待审核的报销申请</span>
+                <a href="{% url 'export_claims' %}" class="btn btn-sm btn-success">
+                    <i class="bi bi-download"></i> 导出报销单
+                </a>
+            </div>
+            <div class="card-body">
+                {% if claims %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>主题</th>
+                                <th>申请人</th>
+                                <th>部门</th>
+                                <th>金额</th>
+                                <th>状态</th>
+                                <th>提交时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for claim in claims %}
+                            <tr>
+                                <td>{{ claim.theme }}</td>
+                                <td>{{ claim.applicant.first_name|default:claim.applicant.username }}</td>
+                                <td>{{ claim.department }}</td>
+                                <td>¥{{ claim.total_amount }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if claim.status == 'SUBMITTED' %}bg-warning
+                                        {% elif claim.status == 'PACKED' %}bg-success
+                                        {% elif claim.status == 'REJECTED' %}bg-danger
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ claim.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ claim.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'reimbursement_detail' claim.pk %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> 查看
+                                    </a>
+                                    {% if claim.status == 'SUBMITTED' %}
+                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#reviewModal{{ claim.pk }}">
+                                        <i class="bi bi-check"></i> 审核
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            
+                            <!-- 审核模态框 -->
+                            <div class="modal fade" id="reviewModal{{ claim.pk }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">审核报销单: {{ claim.theme }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form method="post" action="{% url 'review_reimbursement' claim.pk %}">
+                                            {% csrf_token %}
+                                            <div class="modal-body">
+                                                <p><strong>申请人:</strong> {{ claim.applicant.first_name }}</p>
+                                                <p><strong>金额:</strong> ¥{{ claim.total_amount }}</p>
+                                                <div class="mb-3">
+                                                    <label class="form-label">审核意见</label>
+                                                    <textarea name="note" class="form-control" rows="3"></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="submit" name="action" value="reject" class="btn btn-danger">
+                                                    <i class="bi bi-x"></i> 驳回
+                                                </button>
+                                                <button type="submit" name="action" value="approve" class="btn btn-success">
+                                                    <i class="bi bi-check"></i> 通过并打包
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">暂无待审核的报销申请</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% else %}
+        <!-- 普通用户视图：查看自己的报销单 -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card text-white bg-primary">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-file-text"></i> 总申请</h5>
+                        <p class="card-text display-4">{{ my_claims.count }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-warning">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-hourglass-split"></i> 待审核</h5>
+                        <p class="card-text display-4">{{ my_claims|length }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card text-white bg-success">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-check-circle"></i> 已通过</h5>
+                        <p class="card-text display-4">0</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list"></i> 我的报销申请</span>
+                <a href="{% url 'create_reimbursement' %}" class="btn btn-sm btn-primary">
+                    <i class="bi bi-plus"></i> 新建报销
+                </a>
+            </div>
+            <div class="card-body">
+                {% if my_claims %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th>主题</th>
+                                <th>金额</th>
+                                <th>状态</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for claim in my_claims %}
+                            <tr>
+                                <td>{{ claim.theme }}</td>
+                                <td>¥{{ claim.total_amount }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if claim.status == 'DRAFT' %}bg-secondary
+                                        {% elif claim.status == 'SUBMITTED' %}bg-warning
+                                        {% elif claim.status == 'PACKED' %}bg-success
+                                        {% elif claim.status == 'REJECTED' %}bg-danger{% endif %}">
+                                        {{ claim.get_status_display }}
+                                    </span>
+                                </td>
+                                <td>{{ claim.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    <a href="{% url 'reimbursement_detail' claim.pk %}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> 查看
+                                    </a>
+                                    {% if claim.status == 'DRAFT' or claim.status == 'REJECTED' %}
+                                    <a href="{% url 'edit_reimbursement' claim.pk %}" class="btn btn-sm btn-outline-warning">
+                                        <i class="bi bi-pencil"></i> 编辑
+                                    </a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox display-1 text-muted"></i>
+                    <p class="text-muted mt-3">您还没有提交过报销申请</p>
+                    <a href="{% url 'create_reimbursement' %}" class="btn btn-primary">
+                        <i class="bi bi-plus"></i> 创建第一个报销单
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+

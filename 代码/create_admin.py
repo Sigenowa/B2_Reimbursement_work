@@ -1,49 +1,74 @@
+#!/usr/bin/env python
 """
 创建初始管理员账户的脚本
-首次部署时使用此脚本创建第一个系统管理员账户
 使用方法: python create_admin.py
 """
 import os
 import django
 
-# 设置Django环境变量，使脚本可以独立运行
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'reimbursement_system.settings')
 django.setup()
 
 from users.models import User
 
 def create_admin():
-    """
-    交互式创建管理员账户
-    提示用户输入管理员信息，创建后角色自动设置为系统管理员
-    """
-    username = input("请输入管理员用户名: ")
-    email = input("请输入邮箱: ")
-    password = input("请输入密码: ")
-    first_name = input("请输入姓名: ")
-    student_id = input("请输入学号: ")
-    department = input("请输入部门 (如: 文艺部): ")
+    """创建管理员账户"""
+    print("=" * 50)
+    print("报销神表 - 管理员账户创建工具")
+    print("=" * 50)
     
-    # 检查用户名是否已存在
+    # 检查是否已存在管理员
+    if User.objects.filter(role=User.Role.ADMIN).exists():
+        print("已存在管理员账户:")
+        for admin in User.objects.filter(role=User.Role.ADMIN):
+            print(f"  - {admin.username}")
+        
+        create_new = input("\n是否创建新的管理员？(y/n): ").strip().lower()
+        if create_new != 'y':
+            print("已取消")
+            return
+    
+    # 获取管理员信息
+    print("\n请输入管理员信息:")
+    username = input("用户名: ").strip()
+    
     if User.objects.filter(username=username).exists():
-        print(f"用户名 {username} 已存在！")
+        print(f"用户名 '{username}' 已存在！")
         return
     
-    # 创建管理员用户
-    # 使用create_user方法会自动对密码进行哈希处理
+    password = input("密码: ").strip()
+    first_name = input("姓名: ").strip()
+    email = input("邮箱 (可选): ").strip()
+    student_id = input("学号: ").strip()
+    department = input("部门 (默认: 学生会): ").strip() or "学生会"
+    
+    # 创建管理员
     admin = User.objects.create_user(
         username=username,
-        email=email,
         password=password,
         first_name=first_name,
+        email=email,
         student_id=student_id,
-        college='环境学院',  # 默认学院
         department=department,
-        role=User.Role.ADMIN  # 设置为系统管理员角色
+        college="环境学院",
+        role=User.Role.ADMIN,
+        is_staff=True,
+        is_superuser=True
     )
-    print(f"\n管理员账户创建成功！")
-    print(f"用户名: {admin.username}")
-    print(f"角色: {admin.get_role_display()}")
+    
+    print("\n" + "=" * 50)
+    print("✅ 管理员创建成功！")
+    print(f"   用户名: {admin.username}")
+    print(f"   角色: {admin.get_role_display()}")
+    print("=" * 50)
+    print("\n您可以通过以下地址访问系统:")
+    print("  本地: http://127.0.0.1:8000")
+    print("  服务器: http://101.43.149.245")
 
 if __name__ == '__main__':
     create_admin()
+
+
+
+
+

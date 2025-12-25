@@ -1,0 +1,38 @@
+# systemd服务文件
+# 保存到 /etc/systemd/system/reimbursement.service
+
+[Unit]
+Description=报销神表 Django Application
+After=network.target mysql.service
+Wants=mysql.service
+
+[Service]
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/reimbursement
+Environment="PATH=/home/ubuntu/reimbursement/venv/bin"
+Environment="DJANGO_SETTINGS_MODULE=reimbursement_system.settings"
+
+# 环境变量（从.env文件加载或直接设置）
+EnvironmentFile=/home/ubuntu/reimbursement/.env
+
+# 启动命令
+ExecStart=/home/ubuntu/reimbursement/venv/bin/gunicorn \
+    --config /home/ubuntu/reimbursement/gunicorn.conf.py \
+    reimbursement_system.wsgi:application
+
+# 重启策略
+Restart=always
+RestartSec=5
+
+# 标准输出和错误输出
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
+
+
+
+

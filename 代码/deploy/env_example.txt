@@ -1,0 +1,24 @@
+# 环境变量配置示例
+# 在服务器上复制为 .env 文件并修改配置
+
+# 安全密钥 - 生产环境必须修改！
+# 生成方法: python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+SECRET_KEY=your-secret-key-here-change-in-production
+
+# 调试模式 - 生产环境必须设为False
+DEBUG=False
+
+# 数据库类型：true=SQLite, false=MySQL
+USE_SQLITE=false
+
+# MySQL数据库配置（如果USE_SQLITE=false）
+DB_NAME=reimbursement_db
+DB_USER=reimbursement_user
+DB_PASSWORD=your-database-password
+DB_HOST=localhost
+DB_PORT=3306
+
+
+
+
+

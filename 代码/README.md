@@ -1,128 +1,140 @@
-# 第4周完整代码文件说明
+# 📋 报销神表 - 服务器部署版本
 
-## 📁 文件结构
+> 一个支持多用户协作的在线报销单管理系统
+
+## 🌟 功能特性
+
+- **用户管理**：注册、登录、角色分配（普通用户/报销负责人/系统管理员）
+- **报销申请**：创建、编辑、提交报销单，支持物品明细和发票上传
+- **审核流程**：负责人审核报销单，支持通过/驳回
+- **数据导出**：将报销单导出为Excel + Word + 发票ZIP包
+- **多端访问**：支持PC和移动端浏览器访问
+
+## 🖥️ 服务器信息
+
+| 配置 | 值 |
+|------|-----|
+| **服务器IP** | 101.43.149.245 |
+| **访问地址** | http://101.43.149.245 |
+| **用户名** | ubuntu |
+
+## 📁 项目结构
 
 ```
-Week4/代码/
-├── manage.py                    # Django管理脚本
-├── create_admin.py             # 管理员创建脚本
-├── requirements.txt            # 项目依赖
-├── run_server.sh              # Linux/Mac启动脚本
-├── get_ip.bat                  # Windows IP获取脚本
-├── reimbursement_system/       # Django项目配置
-│   ├── __init__.py
-│   ├── settings.py            # 项目设置（MySQL配置）
-│   ├── urls.py                # 主URL配置
-│   ├── wsgi.py
-│   └── asgi.py
-├── users/                      # 用户管理系统应用
-│   ├── __init__.py
-│   ├── admin.py                # 管理后台配置
-│   ├── apps.py
-│   ├── forms.py                # 用户表单
-│   ├── models.py               # 用户数据模型
-│   ├── views.py                # 用户视图逻辑
-│   ├── urls.py                 # 用户URL配置
-│   ├── migrations/             # 数据库迁移文件
-│   └── tests.py
-├── claims/                     # 报销管理系统应用
-│   ├── __init__.py
-│   ├── admin.py                # 报销管理后台
-│   ├── apps.py
-│   ├── forms.py                # 报销表单
-│   ├── models.py               # 报销数据模型
-│   ├── views.py                # 报销视图逻辑
-│   ├── urls.py                 # 报销URL配置
-│   ├── migrations/             # 数据库迁移文件
-│   └── tests.py
-├── templates/                  # 前端模板文件
-│   ├── base.html              # 基础模板（导航栏、样式）
-│   ├── users/                 # 用户页面模板
-│   │   ├── login.html         # 登录页面
-│   │   ├── register.html      # 注册页面
-│   │   ├── profile_edit.html  # 个人信息编辑
-│   │   └── user_management.html # 用户管理
-│   └── claims/                # 报销页面模板
-│       └── reimbursement_form.html # 报销申请表单
-├── static/                     # 静态文件目录
-├── local_deploy.bat           # Windows本地部署脚本
-├── local_deploy.sh            # Linux/Mac本地部署脚本
-├── start_server.bat          # Windows服务器启动脚本
-├── start_server.sh           # Linux/Mac服务器启动脚本
-├── mysql_setup.bat            # MySQL配置脚本
-├── db_init.py                 # 数据库初始化脚本
-├── 本地部署指南.md             # 详细部署说明
-├── 局域网访问配置.md           # 网络访问配置指南
-└── 快速开始.md                 # 5分钟上手指南
+Week5/代码/
+├── claims/                 # 报销管理应用
+│   ├── models.py          # 报销单、明细、发票模型
+│   ├── views.py           # 视图函数
+│   ├── forms.py           # 表单类
+│   └── urls.py            # URL路由
+├── users/                  # 用户管理应用
+│   ├── models.py          # 自定义用户模型
+│   ├── views.py           # 注册、登录、用户管理视图
+│   └── forms.py           # 注册、编辑表单
+├── reimbursement_system/   # 项目配置
+│   ├── settings.py        # Django设置（支持服务器部署）
+│   ├── urls.py            # 主URL路由
+│   └── wsgi.py            # WSGI入口
+├── templates/              # HTML模板
+│   ├── base.html          # 基础模板
+│   ├── dashboard.html     # 仪表盘
+│   ├── claims/            # 报销相关模板
+│   └── users/             # 用户相关模板
+├── deploy/                 # 部署配置
+│   ├── nginx.conf         # Nginx配置
+│   ├── reimbursement.service  # systemd服务
+│   ├── deploy.sh          # 自动部署脚本
+│   └── mysql_setup.sql    # 数据库初始化
+├── manage.py              # Django管理脚本
+├── requirements.txt       # Python依赖
+├── gunicorn.conf.py       # Gunicorn配置
+└── 服务器部署指南.md       # 详细部署文档
 ```
 
-## 🎯 第4周完成功能
+## 🚀 快速开始
 
-### 1. 完整用户管理系统
-- 用户注册、登录、登出
-- 个人信息编辑
-- 用户角色管理（管理员功能）
-- 多部门支持（文艺部、体育部等）
+### 本地开发
 
-### 2. 完整报销管理系统
-- 报销单创建和编辑
-- 动态添加报销明细
-- 文件上传（发票凭证）
-- 报销单状态管理（草稿、待处理、已打包、已驳回）
-- 报销单审核（负责人功能）
+```bash
+# 1. 创建虚拟环境
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+venv\Scripts\activate     # Windows
 
-### 3. 本地部署和运行
-- MySQL数据库支持
-- 自动环境配置
-- 一键部署脚本
-- 局域网访问支持
-- 移动设备访问
+# 2. 安装依赖
+pip install -r requirements.txt
 
-### 4. 前端界面
-- 响应式Bootstrap设计
-- 中文界面完全本地化
-- 现代化企业级UI
-- 移动端友好
+# 3. 使用SQLite进行开发
+export USE_SQLITE=true
+export DEBUG=true
 
-## 📝 使用说明
+# 4. 数据库迁移
+python manage.py migrate
 
-### 快速开始（推荐）
-1. 双击 `快速开始.md` 查看详细指南
-2. 运行 `local_deploy.bat` 自动部署
-3. 运行 `start_server.bat` 启动服务器
-4. 在浏览器访问显示的地址
+# 5. 创建管理员
+python create_admin.py
 
-### 手动部署
-1. 安装Python 3.9+
-2. 运行 `pip install -r requirements.txt`
-3. 安装并配置MySQL（或使用SQLite）
-4. 运行 `python manage.py migrate`
-5. 运行 `python create_admin.py` 创建管理员
-6. 运行 `python manage.py runserver 0.0.0.0:8000`
+# 6. 启动开发服务器
+python manage.py runserver 0.0.0.0:8000
+```
 
-## ✅ 验收标准
+### 服务器部署
 
-- [x] 用户注册登录功能正常
-- [x] 报销申请功能完整
-- [x] 文件上传下载正常
-- [x] 管理员功能正常
-- [x] 本地部署成功
-- [x] 局域网访问正常
-- [x] 移动设备访问正常
-- [x] 前端界面美观
+详见 [服务器部署指南.md](服务器部署指南.md)
+
+```bash
+# SSH连接服务器
+ssh ubuntu@101.43.149.245
+
+# 运行部署脚本
+bash deploy/deploy.sh
+```
 
 ## 🔧 技术栈
 
-- **后端**: Django 4.2 (Python Web框架)
-- **数据库**: MySQL 8.0 / SQLite (自动切换)
-- **前端**: Bootstrap 5.3 + Django Templates
-- **部署**: 本地开发服务器 + 局域网访问
+| 组件 | 技术 |
+|------|------|
+| **后端** | Django 4.2 |
+| **数据库** | MySQL (生产) / SQLite (开发) |
+| **Web服务器** | Nginx + Gunicorn |
+| **前端** | Bootstrap 5 + Bootstrap Icons |
+| **进程管理** | systemd |
 
-## 📞 支持
+## 👥 用户角色
 
-如遇到问题，请查看：
-1. `本地部署指南.md` - 详细部署说明
-2. `局域网访问配置.md` - 网络访问配置
-3. `快速开始.md` - 5分钟上手指南</content>
-</xai:function_call"><xai:function_call name="run_terminal_cmd">
-<parameter name="command">cd Week4\代码 && dir /b
+| 角色 | 权限 |
+|------|------|
+| **普通用户** | 创建、编辑、查看自己的报销单 |
+| **报销负责人** | 审核本部门报销单、导出报销数据 |
+| **系统管理员** | 管理用户、分配角色 |
+
+## 📝 API端点
+
+| 路径 | 方法 | 说明 |
+|------|------|------|
+| `/` | GET | 仪表盘（需登录） |
+| `/login/` | GET/POST | 用户登录 |
+| `/register/` | GET/POST | 用户注册 |
+| `/claims/create/` | GET/POST | 创建报销单 |
+| `/claims/edit/<id>/` | GET/POST | 编辑报销单 |
+| `/claims/detail/<id>/` | GET | 查看报销单详情 |
+| `/claims/review/<id>/` | POST | 审核报销单 |
+| `/claims/export/` | GET | 导出报销数据 |
+| `/users/` | GET | 用户管理（管理员） |
+
+## 🔒 安全配置
+
+- SECRET_KEY 从环境变量读取
+- 生产环境 DEBUG=False
+- CSRF 保护已启用
+- 密码经过哈希处理
+- 会话超时设置为24小时
+
+## 📞 联系方式
+
+如有问题，请联系项目维护人员。
+
+---
+
+**版本**: Week 5 - 服务器部署版本  
+**最后更新**: 2025年1月
