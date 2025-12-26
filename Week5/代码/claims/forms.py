@@ -19,8 +19,7 @@ class ReimbursementForm(forms.ModelForm):
         required=False,
         label='选择已有主题',
         widget=forms.Select(attrs={
-            'class': 'form-select',
-            'id': 'existing-theme-select'
+            'class': 'form-select'
         })
     )
     
@@ -85,6 +84,19 @@ class ReimbursementForm(forms.ModelForm):
                 department=department
             ).order_by('-created_at')
         
+        # 如果编辑已有报销单且关联了主题，使用主题的时间
+        if self.instance and self.instance.pk and self.instance.activity_theme:
+            # 设置已有主题的初始值
+            self.fields['existing_theme'].initial = self.instance.activity_theme
+            
+            # 如果报销单的时间字段为空，使用主题的时间
+            if not self.instance.activity_year and self.instance.activity_theme.activity_year:
+                self.instance.activity_year = self.instance.activity_theme.activity_year
+            if not self.instance.activity_month and self.instance.activity_theme.activity_month:
+                self.instance.activity_month = self.instance.activity_theme.activity_month
+            if not self.instance.activity_day and self.instance.activity_theme.activity_day:
+                self.instance.activity_day = self.instance.activity_theme.activity_day
+        
         # 设置年份选项（根据当前月份动态设置，在模板中通过JavaScript实现）
         from datetime import datetime
         current_date = datetime.now()
@@ -97,31 +109,45 @@ class ReimbursementForm(forms.ModelForm):
         else:
             year_choices = [(current_year, str(current_year))]
         
+        # 如果编辑已有报销单且关联了主题，确保主题的年份在选项中
+        if self.instance and self.instance.pk and self.instance.activity_theme:
+            theme_year = self.instance.activity_theme.activity_year
+            if theme_year and theme_year not in [y[0] for y in year_choices]:
+                year_choices.append((theme_year, str(theme_year)))
+                year_choices.sort()  # 按年份排序
+        
+        # 如果编辑已有报销单且有年份值，确保该年份在选项中
+        if self.instance and self.instance.pk and self.instance.activity_year:
+            instance_year = self.instance.activity_year
+            if instance_year not in [y[0] for y in year_choices]:
+                year_choices.append((instance_year, str(instance_year)))
+                year_choices.sort()  # 按年份排序
+        
         self.fields['activity_year'].widget.choices = [('', '-- 选择年份 --')] + year_choices
         
         # 设置月份选项（1-12月）
-        # 初始状态：如果年份没有值，月份应该禁用
+        # 注意：不在后端设置disabled属性，由前端JavaScript控制启用/禁用状态
         month_choices = [(i, f'{i}月') for i in range(1, 13)]
         self.fields['activity_month'].widget.choices = [('', '-- 请先选择年份 --')] + month_choices
-        # 如果实例没有年份值，禁用月份选择（编辑模式下如果有年份值则不禁用）
-        if hasattr(self.instance, 'activity_year') and self.instance.activity_year:
-            # 有年份值，不禁用
-            pass
-        else:
-            # 没有年份值，禁用月份
-            self.fields['activity_month'].widget.attrs['disabled'] = 'disabled'
+        # 不在后端设置disabled，让前端JavaScript根据年份值来控制
         
         # 日期选项在JavaScript中动态生成，初始只显示占位符
         # 不预先生成1-31天的选项，避免显示错误的日期（如6月31日）
-        self.fields['activity_day'].widget.choices = [('', '-- 请先选择年月 --')]
-        # 如果实例没有年份或月份值，禁用日期选择（编辑模式下如果有年月值则不禁用）
-        if (hasattr(self.instance, 'activity_year') and self.instance.activity_year and
+        # 但如果编辑模式下已有年月值，需要预先生成日期选项
+        if (self.instance and self.instance.pk and 
+            hasattr(self.instance, 'activity_year') and self.instance.activity_year and
             hasattr(self.instance, 'activity_month') and self.instance.activity_month):
-            # 有年月值，不禁用
-            pass
+            # 编辑模式下，如果已有年月值，预先生成日期选项
+            import calendar
+            year = self.instance.activity_year
+            month = self.instance.activity_month
+            days_in_month = calendar.monthrange(year, month)[1]
+            day_choices = [('', '-- 选择日期 --')] + [(i, f'{i}日') for i in range(1, days_in_month + 1)]
+            self.fields['activity_day'].widget.choices = day_choices
         else:
-            # 没有年月值，禁用日期
-            self.fields['activity_day'].widget.attrs['disabled'] = 'disabled'
+            # 新建模式下，只显示占位符
+            self.fields['activity_day'].widget.choices = [('', '-- 请先选择年月 --')]
+        # 不在后端设置disabled，让前端JavaScript根据年月值来控制
     
     def clean_activity_month(self):
         month = self.cleaned_data.get('activity_month')
