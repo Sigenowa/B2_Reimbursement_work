@@ -19,6 +19,13 @@ from .forms import ReimbursementForm, ReimbursementItemFormSet
 from django.core.exceptions import ValidationError
 
 
+def is_user_lead(user):
+    """安全地检查用户是否为负责人"""
+    if not user or not user.is_authenticated:
+        return False
+    return getattr(user, 'is_lead', False)
+
+
 def validate_file_type(file):
     """
     验证文件类型，只允许PDF和图片格式
@@ -59,7 +66,12 @@ def dashboard(request):
     """仪表盘首页"""
     context = {}
     
-    if request.user.is_lead:
+    # 防御性检查：确保用户已登录
+    if not request.user.is_authenticated:
+        return redirect('login')
+    
+    # 检查用户是否为负责人
+    if is_user_lead(request.user):
         claims = Reimbursement.objects.filter(
             department=request.user.department
         ).exclude(status=Reimbursement.Status.DRAFT).order_by('-created_at')
@@ -106,17 +118,45 @@ def create_reimbursement(request):
             reimbursement.applicant = request.user
             reimbursement.department = request.user.department or "未分配"
             
-            # 处理活动主题：查找或创建
+            # 处理活动主题
             theme_name = form.cleaned_data['theme']
-            activity_theme, created = ActivityTheme.objects.get_or_create(
-                name=theme_name,
-                department=reimbursement.department,
-                defaults={
-                    'activity_year': form.cleaned_data['activity_year'],
-                    'activity_month': form.cleaned_data['activity_month'],
-                    'activity_day': form.cleaned_data['activity_day'],
-                }
-            )
+            existing_theme = form.cleaned_data.get('existing_theme')
+            
+            if existing_theme:
+                # 如果选择了已有主题，直接使用该主题对象
+                activity_theme = existing_theme
+                # 确保主题名称匹配（用户可能修改了主题名称）
+                if activity_theme.name != theme_name:
+                    activity_theme.name = theme_name
+                    activity_theme.save()
+                
+                # 重要：使用已有主题的时间填充报销单的时间字段
+                reimbursement.activity_year = activity_theme.activity_year
+                reimbursement.activity_month = activity_theme.activity_month
+                reimbursement.activity_day = activity_theme.activity_day
+            else:
+                # 如果输入了新主题，查找或创建
+                activity_theme, created = ActivityTheme.objects.get_or_create(
+                    name=theme_name,
+                    department=reimbursement.department,
+                    defaults={
+                        'activity_year': form.cleaned_data['activity_year'],
+                        'activity_month': form.cleaned_data['activity_month'],
+                        'activity_day': form.cleaned_data['activity_day'],
+                    }
+                )
+                # 如果主题已存在但时间不同，更新时间为最新提交的时间
+                if not created:
+                    activity_theme.activity_year = form.cleaned_data['activity_year']
+                    activity_theme.activity_month = form.cleaned_data['activity_month']
+                    activity_theme.activity_day = form.cleaned_data['activity_day']
+                    activity_theme.save()
+                
+                # 使用表单中的时间（新主题或更新后的主题时间）
+                reimbursement.activity_year = activity_theme.activity_year
+                reimbursement.activity_month = activity_theme.activity_month
+                reimbursement.activity_day = activity_theme.activity_day
+            
             reimbursement.activity_theme = activity_theme
             
             if 'save_draft' in request.POST:
@@ -186,15 +226,43 @@ def edit_reimbursement(request, pk):
             
             # 更新活动主题关联
             theme_name = form.cleaned_data['theme']
-            activity_theme, created = ActivityTheme.objects.get_or_create(
-                name=theme_name,
-                department=reimbursement.department,
-                defaults={
-                    'activity_year': form.cleaned_data['activity_year'],
-                    'activity_month': form.cleaned_data['activity_month'],
-                    'activity_day': form.cleaned_data['activity_day'],
-                }
-            )
+            existing_theme = form.cleaned_data.get('existing_theme')
+            
+            if existing_theme:
+                # 如果选择了已有主题，直接使用该主题对象
+                activity_theme = existing_theme
+                # 确保主题名称匹配
+                if activity_theme.name != theme_name:
+                    activity_theme.name = theme_name
+                    activity_theme.save()
+                
+                # 重要：使用已有主题的时间填充报销单的时间字段
+                reimbursement.activity_year = activity_theme.activity_year
+                reimbursement.activity_month = activity_theme.activity_month
+                reimbursement.activity_day = activity_theme.activity_day
+            else:
+                # 如果输入了新主题，查找或创建
+                activity_theme, created = ActivityTheme.objects.get_or_create(
+                    name=theme_name,
+                    department=reimbursement.department,
+                    defaults={
+                        'activity_year': form.cleaned_data['activity_year'],
+                        'activity_month': form.cleaned_data['activity_month'],
+                        'activity_day': form.cleaned_data['activity_day'],
+                    }
+                )
+                # 如果主题已存在但时间不同，更新时间为最新提交的时间
+                if not created:
+                    activity_theme.activity_year = form.cleaned_data['activity_year']
+                    activity_theme.activity_month = form.cleaned_data['activity_month']
+                    activity_theme.activity_day = form.cleaned_data['activity_day']
+                    activity_theme.save()
+                
+                # 使用表单中的时间（新主题或更新后的主题时间）
+                reimbursement.activity_year = activity_theme.activity_year
+                reimbursement.activity_month = activity_theme.activity_month
+                reimbursement.activity_day = activity_theme.activity_day
+            
             reimbursement.activity_theme = activity_theme
             
             if 'save_draft' in request.POST:
@@ -248,7 +316,7 @@ def reimbursement_detail(request, pk):
     """查看报销单详情"""
     reimbursement = get_object_or_404(Reimbursement, pk=pk)
     
-    if not request.user.is_lead and reimbursement.applicant != request.user:
+    if not is_user_lead(request.user) and reimbursement.applicant != request.user:
         messages.error(request, "您没有权限查看此报销单")
         return redirect('dashboard')
 
@@ -260,7 +328,7 @@ def reimbursement_detail(request, pk):
 @login_required
 def review_reimbursement(request, pk):
     """审核报销单（仅负责人可用）"""
-    if not request.user.is_lead:
+    if not is_user_lead(request.user):
         return redirect('dashboard')
         
     reimbursement = get_object_or_404(Reimbursement, pk=pk)
